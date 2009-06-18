@@ -1,4 +1,5 @@
 <?php
+//LAST UPDATED 12-10-05
 include_once ("conn.inc");
 include_once ("inventory.inc.php");
 /************************************************************************************
@@ -21,7 +22,7 @@ class user
 	    
 	var $user_name = "";
 	var $logged_in = false;
-	var $permissions = "";
+	var $permissions = 0;
 	var $email = "";
 	var $numericClass = 0;
 	var $PlayerClass = "";
@@ -239,7 +240,8 @@ class user
         $result = mysql_query( $query ) or die ("Error finding item; check item id");
         if (mysql_num_rows($result) == 1) 
         {
-            $spent = ($this->type + $this->str + $this->dex + 10) * 2;
+			$row = mysql_fetch_array($result);
+            $spent = round(( max($row['strAdded']*3,0) + max($row['dexAdded']*3,0) + max($row['hpAdded'],0) + max((isWearable*25),0)) * 1.15);
             if ($this->get_Gold() > $spent)
             {   
                 $this->addItem($itemID);
@@ -265,7 +267,6 @@ class user
         return $toReturn;
 	}
 	
-	//function added 11/28
 	function equip ($itemID)
 	{
         if ( $this->myInventory->equip($itemID) ) {
@@ -343,20 +344,20 @@ class user
 			//2=pirate
 			//3=ninja
 			case 1:
-                $this->maxHP = round(5 * $this->get_Level()) + $bonus['hp'];
-				$this->str   = round(3.21*$this->get_Level()) + $bonus['str'];
-				$this->dex   = round(1.12*$this->get_Level()) + $bonus['dex'];
+                $this->maxHP = round(7 * $this->get_Level()) + $bonus['hp'] + 5;
+				$this->str   = round(3.21*$this->get_Level()) + $bonus['str'] + 3;
+				$this->dex   = round(1.12*$this->get_Level()) + $bonus['dex'] + 1;
 				break;
 			case 2:
-				$this->maxHP = round(2.8 * $this->get_Level()) + $bonus['hp'];
-				$this->str   = round(2.53*$this->get_Level()) + $bonus['str'];
-				$this->dex   = round(2.27*$this->get_Level()) + $bonus['dex'];
+				$this->maxHP = round(4.8 * $this->get_Level()) + $bonus['hp'] + 4;
+				$this->str   = round(2.53*$this->get_Level()) + $bonus['str'] + 3;
+				$this->dex   = round(2.27*$this->get_Level()) + $bonus['dex'] + 3;
 				break;
 			case 3:
                 $this->attacks = 2;
-				$this->maxHP = round(1.56 * $this->get_Level()) + $bonus['hp'];
-				$this->str   = round(1.23*$this->get_Level()) + $bonus['str'];
-				$this->dex   = round(5.7*$this->get_Level()) + $bonus['dex'];
+				$this->maxHP = round(3.56 * $this->get_Level()) + $bonus['hp'] + 2;
+				$this->str   = round(1.23*$this->get_Level()) + $bonus['str'] + 1;
+				$this->dex   = round(5.7*$this->get_Level()) + $bonus['dex'] + 6;
 				break;
 		}
 		if ($this->hp > $this->maxHP) 
@@ -368,7 +369,7 @@ class user
         //this function should eventually send a message to the database flagging the user as logged out
         
         $this->user_name = "";
-        $this->permissions = "";
+        $this->permissions = 0;
         $this->logged_in = false;
     }
     
@@ -432,7 +433,7 @@ class user
         {
             //Just to be sure, set things to "" if the user fails the login.
             $this->user_name = "";
-            $this->permissions = "";
+            $this->permissions = 0;
             $this->email = "";
             $this->logged_in = false;
         }
@@ -448,7 +449,7 @@ class user
         if (mysql_num_rows($result) <= 0)
         {
             $per = 1;
-            $g = 100;
+            $g = 0;
             $h = 20;
             $ex = 0;
             $l = 0;
@@ -506,7 +507,10 @@ class user
     function get_PlayerBuyList()
     {
         $toreturn = "<div id=\"PlayerBuyList\">Buy something?<br/>";
-        $query = "SELECT itemID,itemname,itemtype,isWearable,strAdded,dexAdded,hpAdded FROM items ORDER BY itemtype";
+        $query = "SELECT itemID, itemname, itemtype, isWearable, strAdded, dexAdded, hpAdded
+FROM items
+WHERE itemtype <> 10
+ORDER BY itemtype";
         $result = mysql_query( $query ) or die("error getting playerbuylist");
         
         while ( $row = mysql_fetch_array( $result ) )

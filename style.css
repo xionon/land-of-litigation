@@ -11,13 +11,18 @@
     border: 0px;
 }
 
+strong#respnose {
+	color: red;
+	weight: bold;
+	font-size: 110%;
+}
+
 table {
     border: 0px;
 }
 
 body {
     font-family: sans-serif;
-    font-size: 85%;
 }
 
 a.sidebar {
@@ -26,6 +31,7 @@ a.sidebar {
     text-decoration: underline;
     background-color: blue;
     display: block;
+	font-size: 75%;
 }
 
 a.sidebar:hover {

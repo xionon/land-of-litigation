@@ -1,9 +1,12 @@
 <?php	
 	session_start();	
 	include_once("user.inc.php");	
+    //changed 12/1 to get around log-back-in bug
 	if ( isset($_SESSION["user"]) )
 	{
-		header("Refresh: 0; URL=userProfile.php");
+        $localuser = unserialize ($_SESSION["user"]);
+        if ($localuser->isLoggedIn() == true)
+            header("Refresh: 0; URL=userProfile.php");
 	}	
 	if ( isset( $_POST["username"], $_POST["password"], $_POST["verify_password"], $_POST["email"], $_POST["class"] ) )
 	{        		
@@ -30,7 +33,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><link rel="stylesheet" type="text/css" href="style.css" /><title>Register a new account with me!  Please, I'm begging you!</title></head>
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"><link rel="stylesheet" type="text/css" href="style.css" /><title>Register a new account with me!  Please, I'm begging you!</title></head>
 <body>Please fill out <em>all</em> information!
     	<form action="newAccount.php" method="post">
         <table border="0">

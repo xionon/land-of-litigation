@@ -128,7 +128,6 @@ class inventory
 	
 	function addItem($itemID)
 	{   
-        //hey new stuff
         //we want to know if there's an item in the inventory that is:
         //of the same type as an id in the items table (v.itemtype = i.itemID)
         //of the same type as the type passed to us (v.itemtype = $itemID)
@@ -139,14 +138,17 @@ class inventory
         $result = mysql_query($query) or die ("problem locating items in inv");
         $row = mysql_fetch_array($result);
         if (mysql_num_rows($result) == 1)
-        {
+        {	
+			echo "if 1<br/>";
             foreach($this->items as $curr)
             {
+				echo "foreach<br/>";
                 //loop through the array of items till we find the one 
                 //of the same type and then add to it
                 //CHANGE 10am if ($curr->getItemID() == $itemID)
                 $iid = $curr->getID();
                 if ($row['invID'] == $iid ) {
+					echo "if foreach<br/>";
                     $curr->addOne(); 
                     break;
                 }
@@ -154,6 +156,7 @@ class inventory
             }
         }
         else {
+			echo "else";
             //the item needs to be added to the inventory database, i guess
             $query = "INSERT INTO inventory VALUES (null,0,'{$this->user_name}',{$itemID},1)";
             $result = mysql_query( $query ) or die ( "error adding new item to inventory; check item id" );
@@ -164,19 +167,6 @@ class inventory
             $row = mysql_fetch_array( $result );
 			$this->items[] = new item( $row );
         }
-/*      //Write the new item to the inventory database
-        $query = "INSERT INTO inventory VALUES (null,0,'{$this->user_name}',{$itemID})";
-        $result = mysql_query( $query ) or die ( "error adding new item to inventory; check item id" );
-
-        //Get the item's stats from the database with id type $itemID
-		$query = "SELECT v.invID, i.itemname, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped  FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = '{$this->user_name}'";
-		$result = mysql_query($query) or die("problem getting inventory");
-
-		while ( $row = mysql_fetch_array( $result ) )
-		{
-			$this->items[] = new item( $row );
-		}
-    */
 	}
 	
 	function usePotion ($id)
@@ -210,16 +200,23 @@ class inventory
         $curType = "";
         //$id is the id of the item in the INVENTORY TABLE, asshole
         $i = 1; //index of the current item in the array
+        
         foreach ($this->items as $curr)
         {
             if ($curr->getID() == $id) { 
-                $curr->equip(); 
-                $curType = $curr->getTypeStr();
+                //need to check to see if the user can equip the item, as well
+                if ($curr->canEquip($this->numericClass)) {
+                      $curr->equip(); 
+                      $curType = $curr->getTypeStr();
+                } else {
+                     $curType = "CannotEquip";
+                }
                 break; 
             }
             $i ++;
         }
 	  
+
         //set the id for the new equipped item type
         //unequip old item if one is equipped
         switch ($curType)
@@ -241,10 +238,13 @@ class inventory
                     $this->items[$this->equippedAccessory]->unequip();
                 $this->equippedAccessory = $i;
                 break;
+
+            case "CannotEquip": //do something?
+                break;
             default:
                 echo $curType . "<br>";
         }
-	}
+	} 
 	
     function unequip($id)
     {

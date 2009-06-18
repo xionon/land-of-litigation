@@ -1,4 +1,5 @@
 <?php
+
     if ($localuser->get_CurrentHP() <= 0)
     {
   		header("Refresh:0; URL=userProfile.php");
@@ -7,10 +8,13 @@
     $ts = str_replace("_","",$thisSite);
     $msg = array();
 
-    if (!isset($_SESSION['adventure']))
+    if (!isset($_SESSION['adventure'])) {
         $localadventure = new adventure($thisSite,($localuser->get_Level+5));
-    else $localadventure = unserialize($_SESSION['adventure']);
-
+	}
+    else {
+		$localadventure = unserialize($_SESSION['adventure']);
+	}
+	
     if (isset($_POST['adventurecommand']))
     {
         $localstats = $localuser->get_Stats();
@@ -24,9 +28,10 @@
 
     if ($localadventure->getType() == 1 && $localadventure->isCompleted()==false)
     {
-        $commands .= "<tr><td>There is nothing for you to do.  The " .
-        "adventure is complete.</td></tr>";
-        $localadventure->complete();
+//        $commands .= "<tr><td>There is nothing for you to do.  The " .
+//        "adventure is complete.</td></tr>";
+		$msg = $localadventure->testAdventure($localuser->get_Stats());
+
     }
 
     else if ($localadventure->getType() == 2 && $localadventure->isCompleted()==false && $localuser->get_CurrentHP() > 0)
@@ -74,4 +79,5 @@
         unset($_SESSION['adventure']);
 	$_SESSION['user'] = serialize($localuser);
 	session_write_close();
+
 ?>

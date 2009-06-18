@@ -1,8 +1,15 @@
 <?php
 	session_start();
-	//include_once("conn.inc");
-	//include_once("item.inc.php");
-	include_once("user.inc.php");
+    $thisSite = "The_Blue_River";
+    echo "1";
+	echo "2";
+	echo "3";
+	//test
+	include_once('adventure.inc.php');
+	include_once('adventurepage.inc');
+	include_once('conn.inc');
+	include_once('user.inc.php');
+	echo "4";
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" />
 <html xmlns="http://www.w3.org/1999/xhtml">
@@ -27,3 +34,4 @@ TESTCASE LOL<br/>
 
 </body>
 </html>
+
