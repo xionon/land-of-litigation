@@ -1,0 +1,47 @@
+#sidebar{
+    width: 100px;
+    border: 1px solid;
+    padding: 5px;
+    margin: 5px 5px 5px 5px;
+    float:left;
+    background-color:blue;
+}
+
+#character_sheet{
+    border: 0px;
+}
+
+table {
+    border: 0px;
+}
+
+body {
+    font-family: sans-serif;
+    font-size: 85%;
+}
+
+a.sidebar {
+    width: 100px;
+    color: white;
+    text-decoration: underline;
+    background-color: blue;
+    display: block;
+}
+
+a.sidebar:hover {
+    width: 100px;
+    color: black;
+    background-color:white;
+    text-decoration: none;
+    display: block;
+}
+
+a {
+    color: blue;
+    text-decoration: underline;
+}
+
+a:hover {
+    color: red;
+    text-decoration: none;
+}

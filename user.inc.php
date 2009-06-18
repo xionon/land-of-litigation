@@ -38,11 +38,18 @@ class user
 	var $numLoc = 0;
 	var $myInventory;
 	var $attacks = 1;
+	var $calculated = 0;
         
     //Initialization function
     function user($user,$pass)
     {
         if ($user != "" && $pass != "")	$this->log_in($user,$pass);
+        return $this->logged_in;
+    }
+
+    function get_calculated()
+    {
+        return "Calculated " . $this->calculated . " times";
     }
 
     function get_username()
@@ -108,23 +115,23 @@ class user
 	function get_Location()
 	{
 		/*
-			0 = Town
-			1 = TheBlueRiver
-			2 = TheDarkForrest
-			3 = TheDeepCave
+			1 = Town
+			2 = TheBlueRiver
+			3 = TheDarkForrest
+			4 = TheDeepCave
 		*/
 		switch ($this->numLoc)
 		{
-			case 0:
+			case 1:
 				return "Town";
 				break;
-			case 1:
+			case 2:
 				return "TheBlueRiver";
 				break;
-			case 2:
+			case 3:
 				return "TheDarkForrest";
 				break;
-			case 3:
+			case 4:
 				return "TheDeepCave";
 				break;
 		}
@@ -148,64 +155,24 @@ class user
 			case "accessory":
 				$toReturn = $this->myInventory->showAccessoryInventory();
 				break;
-		}
+            case "potionlist":
+                $toReturn = $this->myInventory->showPotionForm();
+                break;
+        }
 		return $toReturn;
 	}
 
-	function calculateStats()
-	{
-		//this function calculates the players statistics based on class and level
-		//eventually i should implement stats that grow naturally rather than just linearly....
-		switch ($this->numericClass)
-		{
-			//1=zombie
-			//2=pirate
-			//3=ninja
-			case 1:
-				$this->maxHP = round(5 * $this->get_Level());
-				$this->str   = round(3.21*$this->get_Level());
-				$this->dex   = round(1.12*$this->get_Level());
-				break;
-			case 2:
-				$this->maxHP = round(2.8 * $this->get_Level());
-				$this->str   = round(2.53*$this->get_Level());
-				$this->dex   = round(2.27*$this->get_Level());
-				break;
-			case 3:
-                $this->attacks = 2;
-				$this->maxHP = round(1.56 * $this->get_Level());
-				$this->str   = round(1.23*$this->get_Level());
-				$this->dex   = round(5.7*$this->get_Level());
-				break;
-		}
-
-	}
-	
 	function move($moveTo)
 	{
+        $moveTo = str_replace("_"," ",$moveTo);
 		if ($this->turns > 0) {
-			switch ($moveTo)
-			{
-				/*
-					0 = Town
-					1 = TheBlueRiver
-					2 = TheDarkForrest
-					3 = TheDeepCave
-				*/
-				case "Town":
-					$this->numLoc = 0;
-					break;
-				case "TheBlueRiver":
-					$this->numLoc = 1;
-					break;
-				case "TheDarkForrest":
-					$this->numLoc = 2;
-					break;
-				case "TheDeepCave":
-					$this->numLoc = 3;
-					break;
-			}
+            
+            $result = mysql_query("SELECT location FROM places WHERE name = '{$moveTo}'") or die("error finding place");
+            $row = mysql_fetch_array($result);
+            
+            $this->numLoc = $row['location'];
 			$this->turns --; 
+			
 			mysql_query("update users set turns={$this->turns},location={$this->numLoc} where username = '{$this->user_name}'") or die("error moving user");
 			return true; 
 		}
@@ -217,7 +184,7 @@ class user
         //Resting allows the player to use a turn to regain some hitpoints.
         //At first, they regain 50% of their max hp per rest, but, to encourage potion use,
         //as the player levels up, resting is less usefull!
-        if ( $this->numLoc == 0 && $this->move(0) )
+        if ( $this->numLoc == 1 || $this->move("Town") )
         {
             $this->addHP( round( ($this->maxHP * .5) / $this->get_Level()) ); 
         }
@@ -277,6 +244,31 @@ class user
         return $toReturn;
 	}
 	
+	//function added 11/28
+	function equip ($itemID)
+	{
+        if ( $this->myInventory->equip($itemID) ) {
+            $this->calculateStats();
+            return true;
+        }
+        else {
+            $this->calculateStats();
+            return false;
+        }
+	}
+	
+    function unequip ($itemID)
+    {
+        if ( $this->myInventory->unequip($itemID) ) {
+            $this->calculateStats();
+            return true;
+        }
+        else {
+            $this->calculateStats();
+            return false;
+        }
+    }
+
 	function addGold ($g)
 	{
         $this->gold += $g;
@@ -296,11 +288,48 @@ class user
 		$this->isUnc = true;
 	}
 	
+	function isPlayerUnc()
+	{
+        return $this->isUnc;
+	}
+	
     function isLoggedIn()
     {
         if ($this->logged_in == true) { return true; }
         else { return false; }
     }
+
+	function calculateStats()
+	{
+		//this function calculates the players statistics based on class and level
+		//eventually i should implement stats that grow naturally rather than just linearly....
+		$bonus = $this->myInventory->getBonus();
+		
+		switch ($this->numericClass)
+		{
+			//1=zombie
+			//2=pirate
+			//3=ninja
+			case 1:
+                $this->maxHP = round(5 * $this->get_Level()) + $bonus['hp'];
+				$this->str   = round(3.21*$this->get_Level()) + $bonus['str'];
+				$this->dex   = round(1.12*$this->get_Level()) + $bonus['dex'];
+				break;
+			case 2:
+				$this->maxHP = round(2.8 * $this->get_Level()) + $bonus['hp'];
+				$this->str   = round(2.53*$this->get_Level()) + $bonus['str'];
+				$this->dex   = round(2.27*$this->get_Level()) + $bonus['dex'];
+				break;
+			case 3:
+                $this->attacks = 2;
+				$this->maxHP = round(1.56 * $this->get_Level()) + $bonus['hp'];
+				$this->str   = round(1.23*$this->get_Level()) + $bonus['str'];
+				$this->dex   = round(5.7*$this->get_Level()) + $bonus['dex'];
+				break;
+		}
+		if ($this->hp > $this->maxHP) 
+            $this->hp = $this->maxHP;
+	}
     
     function log_out()
     {
@@ -352,22 +381,20 @@ class user
 			if ($row['experience'] != null)
 				$this->experience = $row['experience'];
 			else $this->experience = 100;
-
-			$this->calculateStats();
+			$this->myInventory = new inventory($this->user_name, $this->numericClass);
 			$this->hp = $row['hp'];
+			$this->calculateStats();
 			$this->numLoc = $row['location'];
 				
 			$this->turns = $row['turns'];
 			$this->timeOfLastTurn = $row['lastTurn'];
 			$this->timeOfLastLogin = $row['now'];
 			$this->calculateTurns();
-
 			if ($this->timeOfLastTurn == $this->timeOfLastLogin)
 			{
 				mysql_query("UPDATE users SET lastTurn = now(),turns={$this->turns} WHERE username = '{$user}'")
 					or die ("error updating lastturn");
 			}
-			$this->myInventory = new inventory($this->user_name);
 		}
         else
         {
@@ -390,7 +417,7 @@ class user
         {
             $per = 1;
             $g = 100;
-            $h = 1;
+            $h = 20;
             $ex = 0;
             $l = 0;
             $t = 40;
@@ -417,15 +444,23 @@ class user
     function getUserInfoTable()
     {
         $lv = $this->get_Level();
-        $toReturn = "<!--USER INFO TABLE--> <table id=\"character_sheet\" width=\"80%\" border=\"1\"> <tr> " .
-        "<td align=\"right\">Character Name:</td> <td>{$this->user_name}</td><td align=\"right\"> " .
-        "Level: </td><td>{$lv}</td><td align=\"right\">Total Experience:</td><td>" . 
-        "{$this->experience}</td></tr> <tr><td align=\"right\">Streingth:</td><td>{$this->str}" .
-        "</td><td align=\"right\">Dexterity:</td><td>{$this->dex}</td><td align=\"right\">Hit Points:</td>" .
-        "<td>{$this->hp} / {$this->maxHP}</td></tr><tr><td align=\"right\" colspan=\"3\">" . 
-        "Turns Remaining:</td><td colspan=\"3\">{$this->turns}</td></tr></table>";
+        $toReturn = "<!--USER INFO TABLE--> <table id=\"character_sheet\" width=\"600\" border = \"1\" bordercolor=\"black\" noshadow> <tr> " .
+        "<th align=\"right\" width=\"125\">Character Name:</th> <td width=\"75\">{$this->user_name}</td><th align=\"right\" width=\"100\"> " .
+        "Level: </th><td width=\"100\">{$lv}</td><th align=\"right\" width=\"125\">Total Experience:</th><td width=\"75\">" . 
+        "{$this->experience}</td></tr> <tr><th align=\"right\">Streingth:</th><td>{$this->str}" .
+        "</td><th align=\"right\">Dexterity:</th><td>{$this->dex}</td><th align=\"right\">Hit Points:</th>" .
+        "<td>{$this->hp} / {$this->maxHP}</td></tr><tr><th align=\"right\" colspan=\"3\">" . 
+        "Turns Remaining:</th><td colspan=\"3\">{$this->turns}</td></tr></table>";
 
     return $toReturn;
+    }
+    
+    function usePotion($id)
+    {
+        //item must be decremented in inventory and any status effects calculated
+        $hpchange = $this->myInventory->usePotion($id);
+        $this->addHP($hpchange);
+        return $hpchange;
     }
 }
 ?>

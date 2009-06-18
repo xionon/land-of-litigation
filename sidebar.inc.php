@@ -1,14 +1,13 @@
 <?php
 function outputSidebar($ts)
 {
+    $ts = str_replace("_","",$ts);
 	return "
-		<div class=\"sidebar\">
-			<ul>
-				<li><a href=\"userProfile.php\">character<br/>sheet</a></li>
-				<li><a href=\"mainMap.php\">main map</a></li>
-				<li><a href=\"{$ts}.php?task=rest\">rest</a></li>
-				<li><a href=\"{$ts}.php?task=logout\">logout</a></li>
-			</ul>
+		<div id=\"sidebar\">
+			<a class=\"sidebar\" href=\"userProfile.php\">character sheet</a>
+			<a class=\"sidebar\" href=\"mainMap.php\">main map</a>
+			<a class=\"sidebar\" href=\"{$ts}.php?task=rest\">rest</a>
+			<a class=\"sidebar\" href=\"{$ts}.php?task=logout\">logout</a>
 		</div>";
 }
 ?>

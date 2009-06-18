@@ -12,6 +12,7 @@ class adventure
     var $location = 1;
     var $type = 1;
     var $monster = array();
+    var $resource = "";
     var $completed = false;
     var $experience = 0;
     var $gold = 0;
@@ -20,7 +21,14 @@ class adventure
     
     function adventure($adventureIn, $levelMax)
     {
-        $this->location = $adventureIn;
+        //updated!
+        
+        $adventureIn = str_replace("_"," ",$adventureIn);
+        $query = "SELECT name,location,level FROM places WHERE name='{$adventureIn}'";
+        $result = mysql_query($query) or die ("error loading location from database");
+        $row = mysql_fetch_array( $result );
+        
+        $this->location = $row['location'];
         $this->type = $this->rolldice(1,2);
         switch ($this->type)
         {
@@ -30,9 +38,10 @@ class adventure
                 break;
             case 2:
                 //fight a monster
-                $this->monster($levelMax);
+                $this->monster();
                 break;
         }
+        
     }
 
     function showAdventure()
@@ -48,6 +57,7 @@ class adventure
                 
                 case 2:
                     $toReturn .= "There is a {$this->monster['monstername']} for you to do glorious battle with!<br/>";
+                    $toReturn .= "<img src=\"{$this->resource}\" /><br />";
                     break;
             }
         }
@@ -61,11 +71,6 @@ class adventure
                     break;
                 case 2:
                     $toReturn = "You defeated the monster!<br/>";
-                    if ($this->monster['gold'] > 0) 
-                        $toReturn .= "<br/>You find {$this->monster['gold']} gold!";
-                    if ($this->monster['item'] != 0)
-                        $toReturn .= "<br/>You find a {$this->monster['item']}!";
-                    $toReturn .="<br/>";
                     break;
             }
         }
@@ -96,10 +101,10 @@ class adventure
         return $reward;
     }
     
-    function monster($max)
+    function monster()
     {
         //create a new monster
-        $query = "SELECT monstername,level,hp,str,dex,gold,item FROM monsters WHERE level<{$max} AND location={$this->location}";
+        $query = "SELECT monstername,level,hp,str,dex,gold,item FROM monsters WHERE location={$this->location}";
         $result = mysql_query($query) or die ("error loading monster from database");
         
         //select a monster to use if more than one is found
@@ -122,6 +127,7 @@ class adventure
         $this->experience = max( 1, ($this->monster['level'] - ($max-5) + 10) );
         $this->item = $this->monster['item'];
         $this->gold = $this->monster['gold'];
+        $this->resource = "images/monsters/" . str_replace(" ", "_", $this->monster['monstername']) . ".gif";
     }
     
     function performCommand($command,$userstats)

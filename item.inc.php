@@ -1,7 +1,7 @@
 <?php
 class item
 {
-	var $id = 0;
+	var $id = 0; //the id from  the inventory table
 	var $itemname = "";
 	var $description = "";
 	var $type = 0;
@@ -10,10 +10,13 @@ class item
 	var $dex = 0;
 	var $hp = 0;
 	var $isEquipped = 0;
-	
+	var $qty = 0;
+	var $itemID = 0;
+
 	function item($itemRow)
 	{
 		$this->id = $itemRow['invID'];
+		$this->itemID = $itemrow['itemID'];
 		$this->itemname = $itemRow['itemname'];
 		$this->type = $itemRow['itemtype'];
 		$this->isWearable = $itemRow['isWearable'];
@@ -21,11 +24,17 @@ class item
 		$this->dex = $itemRow['dexAdded'];
 		$this->hp = $itemRow['hpAdded'];
 		$this->isEquipped = $itemRow['isEquipped'];
+		$this->qty = $itemRow['qty'];
 	}
 	
 	function getID()
 	{
 		return $this->id;
+	}
+	
+	function getItemID()
+	{
+        return $this->itemID;
 	}
 	
 	function getItemName()
@@ -37,7 +46,25 @@ class item
 	{
 		return "Descriptions not yet implemented, sorry";
 	}
+	function useitem()
+	{
+        $this->qty = $this->qty - 1;
+        if ($this->qty < 0) 
+          $this->qty = 0;
+        $this->updateQty();
+	}
 	
+	function addOne()
+	{
+        $this->qty ++;
+        $this->updateQty();
+	}
+
+    function updateQty()
+    {
+        $query = "UPDATE inventory SET qty = {$this->qty} WHERE invID = {$this->id}";
+        $result = mysql_query( $query ) or die ( "error using item; check item id, item id = {$this->id}" );
+    }
 	function getType()
 	{
 		return $this->type;
@@ -45,7 +72,10 @@ class item
 	
 	function getIsWearable()
 	{
-		if ($this->isWearable == 0) return false; else return true;
+		if ($this->isWearable == 0)
+		 return false; 
+		else
+		 return true;
 	}
 	
 	function getStr()
@@ -65,28 +95,75 @@ class item
 	
 	function getIsEquipped()
 	{
-		if ($this->isEquipped == 0) return false; else return true;
+		if ($this->isEquipped == 0) 
+            return false; 
+		else 
+            return true;
 	}
 	
-		
+	function equip()
+	{
+        $this->isEquipped = 1;
+        $query = "UPDATE inventory SET isEquipped = 1 WHERE invID = {$this->id}";
+        $result = mysql_query( $query ) or die ( "error equipping item; check item id, item id = {$this->id}" );
+
+	}
+	
+	function unequip()
+	{
+        $this->isEquipped = 0;
+        $query = "UPDATE inventory SET isEquipped = 0 WHERE invID = {$this->id}";
+        $result = mysql_query( $query ) or die ( "error unequipping item; check item id" );
+	}
+	
 	function getAll()
 	{
-		if ($this->isWearable == 0) {$isWearableB = "No";} else {$isWearableB = "Yes";}
-		if ($this->isEquipped == 0) {$isEquippedB = "No";} else {$isEquippedB = "Yes";}
-		$typeStr = $this->getTypeStr();
-		$toReturn =  "<tr>
- <td>{$this->itemname}</td>
+        $this->resetFromDB();
+        $toReturn = "";
+	
+        if ($this->qty > 0) 
+        {	
+            $isWearableB = "";
+            $isEquippedB = "";
+            if (! $this->getIsWearable()) {
+                $isWearableB = "No";
+            } else {
+                $isWearableB = "Yes";
+            }
+            if (! $this->getIsEquipped()) {
+                $isEquippedB = "No";
+            } else {
+                $isEquippedB = "Yes";
+            }
+            $typeStr = $this->getTypeStr();
+            $toReturn .=  "<tr>
+ <td>{$this->qty}x {$this->itemname}</td>
  <td>{$typeStr}</td>
  <td>{$isWearableB}</td>
  <td>{$this->str}</td>
  <td>{$this->dex}</td>
  <td>{$this->hp}</td>
- <td>{$isEquippedB}</td>
-</tr>";
-
-		return $toReturn;
+ <td>{$isEquippedB}</td>";
+            if ($this->isWearable != 0 && $this->isEquipped == 0) {
+            //add equip this item link
+                $toReturn .= "<td><a href=\"userProfile.php?task=equip&itemid={$this->id}\">equip</a></td>";
+            } 
+            else if ($this->isWearable != 0 && $this->isEquipped == 1) {
+                $toReturn .= "<td><a href=\"userProfile.php?task=unequip&itemid={$this->id}\">unequip</a></td>";
+            }
+            else if ($this->type == 0) {
+                $toReturn .= "<td><a href=\"userProfile.php?task=usePotion&itemid={$this->id}\">use</a></td>";
+            }
+            else $toReturn.="<td>&nbsp;</td>";
+            $toReturn .= "</tr>";
+        }
+        return $toReturn;
 	}
-	
+	function getUse()
+	{
+        $this->resetFromDB();
+        return "<option name=\"itemid\" value={$this->id}>{$this->itemname} ({$this->qty}x)";
+	}
 	function getTypeStr()
 	{
 		$strType="unknown";
@@ -118,6 +195,43 @@ class item
 				break;
 		}
 		return $strType;
+	}
+	
+	function canEquip($uclass)
+	{
+        switch ($uclass)
+        {
+            case 1:
+                if ($this->type == 1 || $this->type == 4 || $this->type == 7)
+                    $toReturn = true;
+                else $toReturn = false;
+                break;
+            case 2:
+                if ($this->type == 2 || $this->type == 5 || $this->type == 8)
+                    $toReturn = true;
+                else $toReturn = false;
+                break;
+            case 3:
+                if ($this->type == 3 || $this->type == 6 || $this->type == 9)
+                    $toReturn = true;
+                else $toReturn = false;
+                break;
+            default:
+                $toReturn = false;
+        }
+        return $toReturn;
+	}
+	
+	function resetFromDB()
+	{
+        //we're loosing the qty and the isEquipped value when they're changed, need to get it from the inventory db
+        
+        $query = "SELECT qty, isEquipped FROM inventory WHERE invID = {$this->id}";
+          $result = mysql_query( $query ) or die ( "error updating item; check item id, item id = {$this->id}" );
+        $row = mysql_fetch_array($result);
+        
+        $this->qty = $row['qty'];
+        $this->isEquipped = $row['isEquipped'];
 	}
 }
 ?>
