@@ -1,4 +1,4 @@
-==LAND OF LITIGATION==
+#LAND OF LITIGATION#
 
 This is a **VERY OLD** game I made, back in 2005.  It was my first PHP project ever!
 
