@@ -1,12 +1,13 @@
 <?php
-function outputSidebar($fromHere)
+function outputSidebar($ts)
 {
-	echo "
+	return "
 		<div class=\"sidebar\">
 			<ul>
 				<li><a href=\"userProfile.php\">character<br/>sheet</a></li>
 				<li><a href=\"mainMap.php\">main map</a></li>
-				<li><a href=\"{$fromHere}.php?task=logout\">logout</a></li>
+				<li><a href=\"{$ts}.php?task=rest\">rest</a></li>
+				<li><a href=\"{$ts}.php?task=logout\">logout</a></li>
 			</ul>
 		</div>";
 }

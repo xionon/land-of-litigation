@@ -13,11 +13,7 @@
 <body>
 This is a test!<br/>
 <?php 
-    $myadv = new adventure(1,10);
-    echo $myadv->showAdventure();
-    $myadv->complete();
-    echo "<br/><br/>completed<br/><br/>";
-    echo $myadv->showAdventure();
+
 ?>
 </body>
 </html>

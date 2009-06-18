@@ -1,9 +1,10 @@
 <?php
 	session_start();
+    $thisSite = "userProfile";
 	include_once('user.inc.php');
 	include_once('sidebar.inc.php');
 	include_once('logoutTask.inc.php');
-	$thisSite = "userProfile";
+
 	
 	if (isset($_POST["inventory"]))
 	{
@@ -11,7 +12,8 @@
 	}
 	
 
-	$_SESSION['user'] = serialize($localuser);
+    $sidebar = outputSidebar($thisSite);
+	$_SESSION["user"] = serialize($localuser);
 	session_write_close();
 ?>
 
@@ -26,18 +28,19 @@
 	<br/>
 	<br/>
 	<!--USER INFO TABLE-->
-	<table id="character_sheet">
-		<tr><td>Character Name:</td> <td><?php echo $localuser->get_username(); ?></td></tr>
-		<tr><td>Level: </td><td><?php echo $localuser->get_Level(); ?></td></tr>
-		<tr><td>Total Experience:</td><td><?php echo $localuser->get_Experience(); ?></td></tr>
-		<tr><td>Streingth:</td><td><?php echo $localuser->get_Str(); ?></td></tr>
-		<tr><td>Dexterity:</td><td><?php echo $localuser->get_Dex(); ?></td></tr>
-		<tr><td>Hit Points:</td><td><?php 
+	<table id="character_sheet" width="80%" border="1">
+		<tr><td align="right">Character Name:</td> <td><?php echo $localuser->get_username(); ?></td>
+		<td align="right">Level: </td><td><?php echo $localuser->get_Level(); ?></td>
+		<td align="right">Total Experience:</td><td><?php echo $localuser->get_Experience(); ?></td></tr>
+		<tr><td align="right">Streingth:</td><td><?php echo $localuser->get_Str(); ?></td>
+		<td align="right">Dexterity:</td><td><?php echo $localuser->get_Dex(); ?></td>
+		<td align="right">Hit Points:</td><td><?php 
 		$currhp = $localuser->get_CurrentHP(); 
 		$maxhp = $localuser->get_MaxHP(); 
 		echo "{$currhp} / {$maxhp}"; ?></td></tr>
-		<tr><td>Turns Remaining:</td><td><?php echo $localuser->get_Turns(); ?></td></tr>
+		<tr><td align="right" colspan="3">Turns Remaining:</td><td colspan="3"><?php echo $localuser->get_Turns(); ?></td></tr>
 	</table>
+
 	<form action="userProfile.php" method="POST" id="filter-inventory">
 		display which inventory:
 		<input type="submit" name="inventory" value="all"/>
@@ -47,6 +50,6 @@
 	</form>
 	<?php 
 	if (isset($invTable)) echo $invTable;
-	outputSidebar($thisSite); ?>
+	echo $sidebar;?>
 </body>
 </html>

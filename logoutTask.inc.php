@@ -11,13 +11,21 @@
 	//If there is a task set, perform it (i.e., logout)
 	if (isset($_GET["task"]))
 	{
-		if ($_GET["task"] == 'logout')
+		switch ($_GET["task"])
 		{
-			
-			$localuser->log_out();
-			unset($localuser);
-			unset($_SESSION["user"]);
-			header("Refresh:0; URL=index.php");
-		}
+            case "logout":
+            {
+                $localuser->log_out();
+                unset($localuser);
+                unset($_SESSION["user"]);
+                header("Refresh:0; URL=index.php");
+                break;
+            }
+            case "rest":
+            {
+                $localuser->rest();
+                break;
+            }
+        }
 	}
 ?>

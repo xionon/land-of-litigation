@@ -16,6 +16,7 @@ class adventure
     var $experience = 0;
     var $gold = 0;
     var $item = 0;
+    var $lastMonsterDamage=0;
     
     function adventure($adventureIn, $levelMax)
     {
@@ -52,18 +53,19 @@ class adventure
         }
         else
         {
-            $toReturn = "Congratulations, you completed your adventure.<br/>";
+            $toReturn = "<b>Congratulations, you completed your adventure!</b><br/>";
             switch ($this->type)
             {
                 case 1:
                     $toReturn .= "<br/>5 experience points!";
                     break;
                 case 2:
-                    $toReturn .= "You get a reward of {$this->monster['gold']} gold";
+                    $toReturn = "You defeated the monster!<br/>";
+                    if ($this->monster['gold'] > 0) 
+                        $toReturn .= "<br/>You find {$this->monster['gold']} gold!";
                     if ($this->monster['item'] != 0)
-                        $toReturn .= " and the {$this->monster['item']} item.";
-                    else
-                        $toReturn .=".<br/>";
+                        $toReturn .= "<br/>You find a {$this->monster['item']}!";
+                    $toReturn .="<br/>";
                     break;
             }
         }
@@ -124,19 +126,27 @@ class adventure
     
     function performCommand($command,$userstats)
     {
-        $msg .= "";
+        $msg = array();
         switch ($this->type)
         {
             case 1:
-                break;//case 1
+                break; //case 1
             case 2:
                 switch ($command)
                 {
                     case "Attack":
-                        $msg .= $this->attackMonster($userstats);
+                        $msg['message'] = $this->attackMonster($userstats);
+                        if ($this->isCompleted() == false) {
+                            $msg['response'] = $this->monsterAttacks($userstats); 
+                            $msg ['damage'] = $this->lastMonsterDamage;
+                        }
                         break; //case "Attack"
                     case "Run":
-                        $msg .= $this->tryToRun($userstats);
+                        $msg['message'] = $this->tryToRun($userstats);
+                        if ($this->isCompleted() == false) {
+                            $msg['response'] = $this->monsterAttacks($userstats); 
+                            $msg ['damage'] = $this->lastMonsterDamage;
+                        }
                         break; //case "Run"
                 }
                 break; //case 2
@@ -161,6 +171,17 @@ class adventure
         {
             $msg .= "You failed to run!";
         }
+        return $msg;
+    }
+
+    function monsterAttacks ($userstats)
+    {
+        $msg = "";
+        if ($this->rollToHit( $this->monster['dex'], $userstats['dex'] ) ) 
+        {
+                $this->lastMonsterDamage = $this->rollDamage( $this->monster['str'], $userstats['str'] );
+                $msg .= "<br/>The {$this->monster['monstername']} hits for {$this->lastMonsterDamage} damage!";
+        } else $msg .= "<br/>The {$this->monster['monstername']} misses!";
         return $msg;
     }
   

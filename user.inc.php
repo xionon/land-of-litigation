@@ -183,7 +183,7 @@ class user
 	
 	function move($moveTo)
 	{
-		if ($this->turns > 1) {
+		if ($this->turns > 0) {
 			switch ($moveTo)
 			{
 				/*
@@ -210,6 +210,17 @@ class user
 			return true; 
 		}
 		else {return false;}
+	}
+	
+	function rest()
+	{
+        //Resting allows the player to use a turn to regain some hitpoints.
+        //At first, they regain 50% of their max hp per rest, but, to encourage potion use,
+        //as the player levels up, resting is less usefull!
+        if ( $this->numLoc == 0 && $this->move(0) )
+        {
+            $this->addHP( round( ($this->maxHP * .5) / $this->get_Level()) ); 
+        }
 	}
 	
 	function calculateTurns()
@@ -401,6 +412,20 @@ class user
         $toReturn['class']   = $this->numericClass;
         $toReturn['attacks'] = $this->attacks;
         return $toReturn;
+    }
+    
+    function getUserInfoTable()
+    {
+        $lv = $this->get_Level();
+        $toReturn = "<!--USER INFO TABLE--> <table id=\"character_sheet\" width=\"80%\" border=\"1\"> <tr> " .
+        "<td align=\"right\">Character Name:</td> <td>{$this->user_name}</td><td align=\"right\"> " .
+        "Level: </td><td>{$lv}</td><td align=\"right\">Total Experience:</td><td>" . 
+        "{$this->experience}</td></tr> <tr><td align=\"right\">Streingth:</td><td>{$this->str}" .
+        "</td><td align=\"right\">Dexterity:</td><td>{$this->dex}</td><td align=\"right\">Hit Points:</td>" .
+        "<td>{$this->hp} / {$this->maxHP}</td></tr><tr><td align=\"right\" colspan=\"3\">" . 
+        "Turns Remaining:</td><td colspan=\"3\">{$this->turns}</td></tr></table>";
+
+    return $toReturn;
     }
 }
 ?>

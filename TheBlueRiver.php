@@ -1,10 +1,10 @@
 <?php
 	session_start();
+    $thisSite = "TheBlueRiver";
 	include_once('user.inc.php');
 	include_once('sidebar.inc.php');
 	include_once('logoutTask.inc.php');
 	include_once('adventure.inc.php');
-	$thisSite = "TheBlueRiver";
 	include_once('adventurepage.inc');
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
@@ -17,7 +17,8 @@
 <i>So far so good...</i>
 <?php
     echo $localadventure->showAdventure();
-    echo $msg;
+    echo $msg['message'];
+    echo $msg['response'];
     echo "<br/>" . $commands;
 ?>
 </body>

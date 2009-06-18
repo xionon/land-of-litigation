@@ -1,9 +1,9 @@
 <?php
 	session_start();
+	$thisSite = "Town";
 	include_once('user.inc.php');
 	include_once('sidebar.inc.php');
 	include_once('logoutTask.inc.php');
-	$thisSite = "Town";
 	
 	$localuser->move($thisSite);
 	
@@ -19,6 +19,10 @@
 
 <body>
 Welcome to town.  What do you want to do?
-<?php outputSidebar($thisSite);?>
+<br/>
+<?php
+echo outputSidebar($thisSite) . "<br/>";
+echo $localuser->getUserInfoTable();
+?>
 </body>
 </html>
