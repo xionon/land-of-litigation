@@ -1,16 +1,19 @@
 <?php
 include_once ("conn.inc");
 include_once ("inventory.inc.php");
-
-/***********
+/************************************************************************************
 Object oriented user management
-When a user logs in to the site, a new USER object is created and stored in their session.  This USER object contains all information about the user themselves - i.e., all information stored in the database is put into the object.  This reduces the number of database calls I'll need to make in the program.
+When a user logs in to the site, a new USER object is created and stored in their 
+session.  This USER object contains all information about the user themselves - i.e., 
+all information stored in the database is put into the object.  This reduces the number 
+of database calls I'll need to make in the program.
 
-I got this idea from a script I downloaded, modified it to suit my needs.  Not sure if object oriented was the way to go for user management, but wanted to exparament with it, anyway.
+I got this idea from a script I downloaded, modified it to suit my needs.  Not sure 
+if object oriented was the way to go for user management, but wanted to exparament 
+with it, anyway.
 
 Passwords are, right now, probably unsecure.
-*/
-
+*************************************************************************************/
 class user 
 {
     //The user's password should not be stored in this object... if they passed
@@ -307,18 +310,15 @@ class user
 		5. Set the user's logged_in status to 'true' on the database.
 			
 		2a. Set everything to nothing.
-		
 		*/
-		
         //Get permissions for user from users database.
         $query = "SELECT now()+0 as now, email, class, permissions, experience, lastTurn, turns, location, hp FROM users WHERE username = '{$user}' AND password = (password('{$pass}'))";
         $result = mysql_query($query)
             or die( "Problem with selecting permissions and email" );
-        
         //mysql_fetch_array should return an array of all information gathered
         //in the above query.  
 		$row = mysql_fetch_array( $result );
-        
+
         if ( mysql_num_rows( $result ) == 1)
         {
             $this->user_name = $user;
@@ -368,20 +368,26 @@ class user
         }
 	}
 
-    function register($user,$pass,$class,$email)
+    function register($u,$p,$c,$e)
     {
         //check for existing users with that username
-        $query = "SELECT username FROM users WHERE username='" .
-            $this->user_name . "';";
+        $query = "SELECT username FROM users WHERE username='{$u}'";
         $result = mysql_query($query)
             or die(mysql_error());
         
         if (mysql_num_rows($result) <= 0)
         {
-			$query = "INSERT INTO users VALUES ('{$user}', (password('{$pass}')), '{$email}', {$class}, 1)";
+            $per = 1;
+            $g = 100;
+            $h = 1;
+            $ex = 0;
+            $l = 0;
+            $t = 40;
+			//username,password,email,permissions,class,gold,hp,experience,location,turns,lastTurn
+			$query = "INSERT INTO users VALUES ('{$u}', (password('{$p}')), '{$e}', {$per}, {$c}, {$g}, {$h}, {$ex}, {$l}, {$t}, now())";
 			if (mysql_query($query)) 
             {
-                $this->log_in($user,$pass);
+                $this->log_in($u,$p);
                 return true;
             }
         }

@@ -33,7 +33,5 @@
 		 <a href = \"login.php\">click here</a>";
 	}
 ?>
-
-
 </body>
 </html>

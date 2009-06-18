@@ -19,8 +19,9 @@ class inventory
 	function inventory($user)
 	{
 		$this->user_name = $user;
-		$this->items = array();
-		$query = "SELECT v.invID, i.itemname, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped  FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = '{$this->user_name}'";
+		//is this necessary?  it is instantiated above...
+		//$this->items = array();
+		$query = "SELECT v.invID, i.itemname, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = '{$this->user_name}'";
 
 		$result = mysql_query($query) or die("problem getting inventory");
 
@@ -28,7 +29,6 @@ class inventory
 		{
 			$this->items[] = new item( $row );
 		}
-
 	}
 
 	function showInventory()
@@ -52,7 +52,6 @@ class inventory
 			if ( $iT == "Weapon") $inv .= $this->items[$i]->getAll();
 		}
 		$inv .= "</table>";
-
 	return $inv;
 	}
 	
@@ -66,9 +65,7 @@ class inventory
 			if ( $iT == "Armor") $inv .= $this->items[$i]->getAll();
 		}
 		$inv .= "</table>";
-
 	return $inv;
-	
 	}
 	
 	function showAccessoryInventory()
@@ -81,9 +78,8 @@ class inventory
 				if ( $iT == "Accessory") $inv .= $this->items[$i]->getAll();
 		}
 		$inv .= "</table>";
-
 	return $inv;
-	
+
 	}
 	
 	function addItem($itemID)
@@ -102,8 +98,17 @@ class inventory
 		}
 	}
 	
-	function equip($itemID)
+	function equip($invID)
 	{
+        /*
+        To equip an item, first we need to know what kind of item it is (armor, weapon, accessory)
+        We can assume that the equip command will not have been sent for an item that is not equipable.
+        Then we will have to check to see if there is an item of that type already equipped.  If so,
+        that item will be unequipped.  Then the item that has been requested will be marked as equipped
+        and the appropriate variable updated.
+        */
+
+        
 	}
 }
 ?>
