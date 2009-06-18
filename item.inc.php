@@ -48,16 +48,20 @@ class item
 	}
 	function useitem()
 	{
+        $this->resetFromDB();
         $this->qty = $this->qty - 1;
         if ($this->qty < 0) 
           $this->qty = 0;
-        $this->updateQty();
+        $query = "UPDATE inventory SET qty = {$this->qty} WHERE invID = {$this->id}";
+        $result = mysql_query( $query ) or die ( "error using item; check item id, item id = {$this->id}" );
 	}
 	
 	function addOne()
 	{
-        $this->qty ++;
-        $this->updateQty();
+        $this->resetFromDB();
+        $this->qty = $this->qty + 1;
+        $query = "UPDATE inventory SET qty = {$this->qty} WHERE invID = {$this->id}";
+        $result = mysql_query( $query ) or die ( "error using item; check item id, item id = {$this->id}" );
 	}
 
     function updateQty()
@@ -115,7 +119,25 @@ class item
         $query = "UPDATE inventory SET isEquipped = 0 WHERE invID = {$this->id}";
         $result = mysql_query( $query ) or die ( "error unequipping item; check item id" );
 	}
+	function getSell()
+	{
+        $this->resetFromDB();
+        $toReturn = "";
+        //return the itemname and a link to sell it
+        if ($this->qty > 0) 
+        {
+            $p = $this->getPrice();
+            $toReturn .= "<tr><td>{$this->itemname} x{$this->qty}</td>";
+            $toReturn .= "<td><a href=\"shop.php?task=sell&itemid={$this->id}\">sell for {$p}</a></td></tr>";
+        }
+        return $toReturn;
+	}
 	
+	function getPrice()
+	{
+        $price = $this->type + $this->str + $this->dex + 10;
+        return $price;
+	}
 	function getAll()
 	{
         $this->resetFromDB();
@@ -162,7 +184,9 @@ class item
 	function getUse()
 	{
         $this->resetFromDB();
+        if ($this->qty > 0)
         return "<option name=\"itemid\" value={$this->id}>{$this->itemname} ({$this->qty}x)";
+        else return "";
 	}
 	function getTypeStr()
 	{

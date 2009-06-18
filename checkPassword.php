@@ -20,7 +20,6 @@
 		$_SESSION['user'] = serialize($localuser);
 		session_write_close();
 		header("Refresh:0;URL=userProfile.php");
-		echo "<h1>SESSION IS A GO-GO</h1>";
 	}
 	else
 	{

@@ -158,6 +158,9 @@ class user
             case "potionlist":
                 $toReturn = $this->myInventory->showPotionForm();
                 break;
+            case "selllist":
+                $toReturn = $this->myInventory->showSellList();
+                break;
         }
 		return $toReturn;
 	}
@@ -229,9 +232,27 @@ class user
 		mysql_query("UPDATE users set hp={$this->hp} where username = '{$this->user_name}'") or die(" hp");
 	}
 	
+	function buy ($itemID)
+	{
+        $spent = 0;
+        $query = "SELECT itemID,itemname,itemtype,isWearable,strAdded,dexAdded,hpAdded FROM items WHERE itemID = {$itemID}";
+        $result = mysql_query( $query ) or die ("Error finding item; check item id");
+        if (mysql_num_rows($result) == 1) 
+        {
+            $spent = ($this->type + $this->str + $this->dex + 10) * 2;
+            if ($this->get_Gold() > $spent)
+            {   
+                $this->addItem($itemID);
+                $this->spendGold($spent);
+            }
+            else $spent = 0;
+        }
+        return $spent;
+	}
+	
     function addItem ($itemID)
 	{
-        $query = "SELECT * FROM items WHERE itemID = {$itemID}";
+        $query = "SELECT itemID,itemname,itemtype,isWearable,strAdded,dexAdded,hpAdded FROM items WHERE itemID = {$itemID}";
         $result = mysql_query( $query ) or die ("Error finding item; check item id");
         if (mysql_num_rows($result) == 1) 
         {
@@ -274,6 +295,17 @@ class user
         $this->gold += $g;
         mysql_query("UPDATE users set gold={$this->gold} where username = '{$this->user_name}'") or die("gold update error");
 	}
+
+    function spendGold ($g)
+    {
+        $this->gold -= $g;
+        mysql_query("UPDATE users set gold={$this->gold} where username = '{$this->user_name}'") or die("gold update error");
+    }
+
+    function get_Gold()
+    {
+        return $this->gold;
+    }
 	
 	function addExp ($e)
 	{
@@ -352,7 +384,7 @@ class user
 		2a. Set everything to nothing.
 		*/
         //Get permissions for user from users database.
-        $query = "SELECT now()+0 as now, email, class, permissions, experience, lastTurn, turns, location, hp FROM users WHERE username = '{$user}' AND password = (password('{$pass}'))";
+        $query = "SELECT now()+0 as now, email, class, permissions, experience, lastTurn, turns, location, hp, gold FROM users WHERE username = '{$user}' AND password = (password('{$pass}'))";
         $result = mysql_query($query)
             or die( "Problem with selecting permissions and email" );
         //mysql_fetch_array should return an array of all information gathered
@@ -385,7 +417,7 @@ class user
 			$this->hp = $row['hp'];
 			$this->calculateStats();
 			$this->numLoc = $row['location'];
-				
+			$this->gold = $row['gold'];	
 			$this->turns = $row['turns'];
 			$this->timeOfLastTurn = $row['lastTurn'];
 			$this->timeOfLastLogin = $row['now'];
@@ -462,5 +494,28 @@ class user
         $this->addHP($hpchange);
         return $hpchange;
     }
+
+    function sell($id)
+    {
+        //item must be decremented in inventory and any status effects calculated
+        $goldChange = $this->myInventory->sell($id);
+        $this->addGold($goldChange);
+        return $goldChange;
+    }
+    
+    function get_PlayerBuyList()
+    {
+        $toreturn = "<div id=\"PlayerBuyList\">Buy something?<br/>";
+        $query = "SELECT itemID,itemname,itemtype,isWearable,strAdded,dexAdded,hpAdded FROM items ORDER BY itemtype";
+        $result = mysql_query( $query ) or die("error getting playerbuylist");
+        
+        while ( $row = mysql_fetch_array( $result ) )
+        {
+            $toreturn .= "<a href=\"shop.php?task=buy&itemid={$row['itemID']}\">buy {$row['itemname']}</a><br/>";
+        }
+        $toreturn .= "</div>";
+        return $toreturn;
+    }
+
 }
 ?>

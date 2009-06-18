@@ -117,7 +117,7 @@ INSERT INTO monsters VALUES ('Fire Bot',10,4,90,30,25,1000,3);
 INSERT INTO items VALUES (null,'Steel Sword',1,1,5,1,0);
 INSERT INTO items VALUES (null,'Potion',0,0,0,0,10);
 INSERT INTO items VALUES (null,'Big Potion',0,0,0,0,50);
-INSERT INTO items VALUES (null,'Sheild',2,1,0,5,5);
+INSERT INTO items VALUES (null,'Sheild',4,1,0,5,5);
 
 INSERT INTO inventory VALUES (null,0,'dill',1,1);
 INSERT INTO inventory VALUES (null,0,'dill',0,1);

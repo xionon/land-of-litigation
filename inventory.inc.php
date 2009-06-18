@@ -59,6 +59,19 @@ class inventory
 	return $inv;
 	}
 	
+	function showSellList()
+	{
+		$inv = "<table border=\"1\"><tr><th colspan=\"10\">{$this->user_name}'s Inventory</th></tr>".
+		"<tr><th>Item Name</th><th>Sell?</th></tr>";
+		foreach ($this->items as $i => $curr)
+		{
+			$inv .= $this->items[$i]->getSell();
+		}
+		$inv .= "</table>";
+	return $inv;
+	
+	}
+	
 	function showWeaponInventory()
 	{
 		$inv = "<table border=\"2\"><tr><th colspan=\"10\">{$this->user_name}'s Inventory</th></tr><tr><th>Item Name</th><th>Item Type</th><th>Is it wearable?</th><th>Streingth Bonus</th><th>Dexterity Bonus</th><th>HP Bonus</th><th>Equipped?</th></tr>";
@@ -123,9 +136,8 @@ class inventory
         //is stackable (i.itemtype = 0)
         
         $query = "SELECT v.invID, i.itemtype FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.itemtype = {$itemID} AND owner = '{$this->user_name}' AND i.itemtype = 0";
-        
         $result = mysql_query($query) or die ("problem locating items in inv");
-        
+        $row = mysql_fetch_array($result);
         if (mysql_num_rows($result) == 1)
         {
             foreach($this->items as $curr)
@@ -133,7 +145,12 @@ class inventory
                 //loop through the array of items till we find the one 
                 //of the same type and then add to it
                 //CHANGE 10am if ($curr->getItemID() == $itemID)
-                if ($curr->getItemID() == $itemID){ $curr->addOne(); break; }
+                $iid = $curr->getID();
+                if ($row['invID'] == $iid ) {
+                    $curr->addOne(); 
+                    break;
+                }
+                
             }
         }
         else {
@@ -142,13 +159,11 @@ class inventory
             $result = mysql_query( $query ) or die ( "error adding new item to inventory; check item id" );
 
             $query = "SELECT v.invID, i.itemname, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped  FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = '{$this->user_name}' AND v.itemtype = {$itemID}";
-		$result = mysql_query($query) or die("problem getting inventory");
+            $result = mysql_query($query) or die("problem getting inventory");
 
             $row = mysql_fetch_array( $result );
 			$this->items[] = new item( $row );
         }
-
-
 /*      //Write the new item to the inventory database
         $query = "INSERT INTO inventory VALUES (null,0,'{$this->user_name}',{$itemID})";
         $result = mysql_query( $query ) or die ( "error adding new item to inventory; check item id" );
@@ -176,6 +191,20 @@ class inventory
         }
         return $toReturn;
 	}
+	
+	function sell ($id)
+	{
+        $toReturn = 0;
+        foreach ($this->items as $curr) {
+            if ($curr->getID() == $id)
+            {
+                $toReturn = $curr->getPrice();
+                $curr->useitem();
+            }
+        }
+        return $toReturn;
+	}
+	
 	function equip($id)
 	{   
         $curType = "";

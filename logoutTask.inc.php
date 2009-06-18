@@ -3,6 +3,7 @@
 	if (!isset($_SESSION["user"])) {
 		header("Refresh: 0; URL=login.php");
 	}
+	$goldSpent = 0-1;
 	
 	//This part unserializes the user
 	$localuser = unserialize($_SESSION["user"]);
@@ -48,6 +49,23 @@
                     $hpchange = $localuser->usePotion($_GET['itemid']);
                 }
                 break;
+            }
+            case "sell":
+            {
+                if (!isset ($_GET['itemid']))
+                    break;
+                else {
+                    $goldEarned = $localuser->sell($_GET['itemid']);
+                }
+                break;
+            }
+            case "buy":
+            {
+                if (!isset ($_GET['itemid']))
+                    {break;}
+                else {
+                    $goldSpent = $localuser->buy($_GET['itemid']);
+                }
             }
         }
 	}
