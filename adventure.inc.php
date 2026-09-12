@@ -22,13 +22,15 @@ class adventure
     var $item = 0;
     var $lastMonsterDamage=0;
     
-    function adventure($adventureIn, $levelMax)
+    function __construct($adventureIn, $levelMax)
     {
         $adventureIn = str_replace("_"," ",$adventureIn);
-        $query = "SELECT name,location,level FROM places WHERE name='{$adventureIn}'";
-        $result = mysql_query($query) or die ("error loading location from database");
-        $row = mysql_fetch_array( $result );
+        $params = [$adventureIn];
+        $query = "SELECT name,location,level FROM places WHERE name=?";
+        $result = db_query($query, $params) or die ("error loading location from database");
+        $row = $result->fetch();
         
+        if (!$row) { $this->type = 0; $this->complete(); return; }
         $this->location = $row['location'];
         $this->type = $this->rolldice(1,2);
         switch ($this->type)
@@ -47,20 +49,20 @@ class adventure
 	
     function showAdventure()
     {
-        $toReturn;
+        $toReturn = $this->type == 0 ? "There is nothing to encounter here." : "";
         if ( !$this->isCompleted() )
         {
             switch ($this->type)
             {
                 case 1:
                     $toReturn .= "<strong>" . $this->myAdventure['name'] . "</strong> <br />";
-					$toReturn .= "<img src=\"{$this->resource}\" /><br />";
+					if ($this->resource !== "") $toReturn .= "<img src=\"{$this->resource}\" /><br />";
 					$toReturn .= $this->myAdventure['description'];
                     break;
                 
                 case 2:
                     $toReturn .= "There is a {$this->monster['monstername']} for you to do glorious battle with!<br/>";
-                    $toReturn .= "<img src=\"{$this->resource}\" /><br />";
+                    if ($this->resource !== "") $toReturn .= "<img src=\"{$this->resource}\" /><br />";
                     break;
             }
         }
@@ -70,7 +72,7 @@ class adventure
             {
                 case 1:
                     $toReturn .= "<strong>" . $this->myAdventure['name'] . "</strong>";
-					$toReturn .= "<img src=\"{$this->resource}\" /><br />";
+					if ($this->resource !== "") $toReturn .= "<img src=\"{$this->resource}\" /><br />";
 					$toReturn .= $this->myAdventure['description'];
                     break;
                 case 2:
@@ -112,64 +114,34 @@ class adventure
         return $reward;
     }
     
-	function newAdventure($userlevel)
-	{
-		//Select all adventures for this location
-		$query = "SELECT adventureID,name,description,testAgainst,testValue,completeText,failText,rewardExperience,rewardItemID,location,level FROM adventures WHERE location={$this->location}";	
-		$result = mysql_query($query) or die ("error finding an adventure");
-		//Select a single one to use
-		$num = mysql_num_rows($result);
-		if ($num > 1 && $num != 0) {
-			//If there is more than one adventure for this location in the database, we need to randomly pick one of them
-			//Roll a random number between zero and the number of adventures-1.  mysql_data_seek will move the pointer for
-			//the next data in the result array to be whatever the die roll is, and then we will fetch the associative array.
-			$newnum = $this->rolldice(0, $num-1);
-			mysql_data_seek($result, $newnum);
-			$keeper = mysql_fetch_assoc($result);
-		
-		} elseif ($num != 0) {
-			$keeper = mysql_fetch_assoc($result);
-		}
-		$this->myAdventure = $keeper;
-/*		
-		$levelDiff = $this->myAdventure['level'] - $userlevel;
-		$levelMod = $levelDiff * 10;
-		$this->experience = max(1, $this->myAdventure['rewardExperience'] + $levelMod);
-*/
+    function newAdventure($userlevel)
+    {
+        $this->type = 1;
+        $this->completed = false;
+        $this->gold = 0;
+        $this->item = 0;
+        $this->experience = 0;
+        $this->resource = '';
+        $rows = db_query('SELECT * FROM adventures WHERE location = ?', [$this->location])->fetchAll();
+        if (!$rows) { $this->type = 2; $this->monster($userlevel + 5); return; }
+        $this->myAdventure = $rows[$this->rolldice(0, count($rows) - 1)];
+        $this->experience = 10;
+        $this->item = $this->myAdventure['rewardItemID'] ?? 0;
+        $path = "images/adventures/{$this->myAdventure['adventureID']}.gif";
+        $this->resource = is_file(__DIR__ . '/' . $path) ? $path : '';
+    }
 
-		$baseExp = $this->myAdventure['rewardExperience'];
-		$levelMod = ($this->myAdventure['level'] - $userlevel) * 2;
-		$this->experience = max(1, ($baseExp + $levelMod));
-
-		$this->experience = 10;
-		if ($this->myAdventure["rewardItemID"] > 0) {
-			$this->item = $this->myAdventure["rewardItemID"];
-		}
-		$this->resource = "images/adventures/{$this->myAdventure['adventureID']}.gif";
-	}
 
     function monster($max)
     {
-        //create a new monster
-        $query = "SELECT monstername,level,hp,str,dex,gold,item, itemChance FROM monsters WHERE location={$this->location} ORDER BY level";
-        $result = mysql_query($query) or die ("error loading monster from database");
-        
-        //select a monster to use if more than one is found
-        if (mysql_num_rows($result)>1)
-        {
-            while ( $row = mysql_fetch_array( $result ) )
-            {
-                $keeper=$row;
-                $roll = $this->rolldice(1,3);
-                //users have a better chance of hitting a lower level monster
-                if ($roll < 3)
-                    break;
-            }
+        $rows = db_query('SELECT monstername,level,hp,str,dex,gold,item,itemChance FROM monsters WHERE location = ? ORDER BY level', [$this->location])->fetchAll();
+        $keeper = false;
+        foreach ($rows as $row) {
+            $keeper = $row;
+            // Keep the original two-in-three preference for lower-level monsters.
+            if (count($rows) === 1 || $this->rolldice(1, 3) < 3) break;
         }
-        else
-        {
-            $keeper = mysql_fetch_array($result);
-        }
+        if (!$keeper) { $this->type = 0; $this->complete(); return; }
         $this->monster = $keeper;
 		//experience = 10 + the difference in the monsters level and the player's level
 		//So a monster with a higher level than the player will give the player more exp
@@ -207,7 +179,7 @@ class adventure
 					$msg["response"] = "<strong id=\"response\">" . $this->myAdventure["completeText"] . "</strong>";
 				} else {
 				$this->fail();
-				$msg["response"] = "<strong id=\"response\">" . $this->myAdventure["failtext"] . "</strong>";
+				$msg["response"] = "<strong id=\"response\">" . $this->myAdventure["failText"] . "</strong>";
 				}
 				break;
 			case 'str':
@@ -216,7 +188,7 @@ class adventure
 					$msg["response"] = "<strong id=\"response\">" . $this->myAdventure["completeText"] . "</strong>";
 				} else {
 					$this->fail();
-					$msg["response"] = "<strong id=\"response\">" . $this->myAdventure["failtext"] . "</strong>";
+					$msg["response"] = "<strong id=\"response\">" . $this->myAdventure["failText"] . "</strong>";
 				}
 				break;
 			default:
@@ -279,6 +251,7 @@ class adventure
 
     function monsterAttacks ($userstats)
     {
+        $this->lastMonsterDamage = 0;
         $msg = "";
         if ($this->rollToHit( $this->monster['dex'], $userstats['dex'] ) ) 
         {
@@ -290,7 +263,7 @@ class adventure
   
     function attackMonster($userstats)
     {
-        $msg .= "";
+        $msg = "";
         //attack the monster
         for ($classAttacks = $userstats['attacks']; $classAttacks > 0 && $this->isCompleted() == false; $classAttacks--)
         {
@@ -323,7 +296,7 @@ class adventure
     function rollDamage( $aStr, $dStr )
     {
         $dammin = max( $aStr - $dStr, 1);
-        $damage = $this->rolldice( $dammin, $aStr );
+        $damage = $this->rolldice($dammin, max($dammin, $aStr));
         return $damage;
     }
 

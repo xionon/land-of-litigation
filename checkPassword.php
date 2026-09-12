@@ -1,35 +1,16 @@
 <?php
-	session_start();
-	include_once("user.inc.php");
-?>
-<html>
-<head>
-<title>checking password...</title>
-<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
-</head>
-
-<body>
-<?php
-	if ( !isset($_POST['username']) || !isset($_POST['password']))
-	{
-		header("Refresh:0; URL=login.php");
-	}
-	$localuser = new user($_POST['username'],$_POST['password']);
-	if ($localuser->isLoggedIn())
-	{
-		$_SESSION['user'] = serialize($localuser);
-		session_write_close();
-		header("Refresh:0;URL=userProfile.php");
-	}
-	else
-	{
-		session_write_close();
-		header("Refresh:3;URL=login.php");
-		echo "There is a problem with your Username ({$_POST['username']}) or Password ({$_POST['password']}). You are being redirected
-		 to the login page. <br />
-		 If your browser does not support this or you are not redirected in 3 seconds,
-		 <a href = \"login.php\">click here</a>";
-	}
-?>
-</body>
-</html>
+session_start();
+require_once 'user.inc.php';
+if (!isset($_POST['username'], $_POST['password']) || !is_string($_POST['username']) || !is_string($_POST['password'])) {
+    header('Location: login.php'); exit;
+}
+$localuser = new user($_POST['username'], $_POST['password']);
+if ($localuser->isLoggedIn()) {
+    session_regenerate_id(true);
+    unset($_SESSION['adventure']);
+    $_SESSION['user'] = serialize($localuser);
+    session_write_close();
+    header('Location: userProfile.php'); exit;
+}
+http_response_code(401);
+echo 'There is a problem with your username or password. <a href="login.php">Try again</a>.';

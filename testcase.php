@@ -1,16 +1,11 @@
 <?php
-	session_start();
-    $thisSite = "The_Blue_River";
-    echo "1";
-	echo "2";
-	echo "3";
-	//test
-	include_once('adventure.inc.php');
-	include_once('adventurepage.inc');
-	include_once('conn.inc');
-	include_once('user.inc.php');
-	echo "4";
+    session_start();
+    include_once('user.inc.php');
+    include_once('logoutTask.inc.php');
+    $_SESSION['user'] = serialize($localuser);
+    session_write_close();
 ?>
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" />
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -23,13 +18,13 @@
 This is a test!<br/>
 TESTCASE LOL<br/>
 <form action = "checkPassword.php" method = "post">
-    <input type = "hidden" name = "username" value = "dill" />
-    <input type = "hidden" name = "password" value = "password" />
+    <input type = "text" name = "username" />
+    <input type = "password" name = "password" />
     <input type="submit" name="submit" value="login" />
 </form>
 <?php
-    $localuser = new user('dill','password');
-    
+    echo $localuser->getUserInfoTable();
+
 ?>
 
 </body>

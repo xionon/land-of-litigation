@@ -16,8 +16,8 @@
 <?php
     if ($localuser->get_CurrentHP() > 0) echo $localadventure->showAdventure();
     else echo "<h1>You die!</h1>";
-    echo $msg['message'];
-    echo $msg['response'];
+    echo $msg['message'] ?? '';
+    echo $msg['response'] ?? '';
     echo "<br/>" . $commands;
 ?>
 </body>
