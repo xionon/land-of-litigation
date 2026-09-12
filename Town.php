@@ -4,10 +4,13 @@
 	include_once('user.inc.php');
 	include_once('sidebar.inc.php');
 	include_once('logoutTask.inc.php');
-	
+
 	$level = $localuser->get_Level();
-	$localuser->move($thisSite);
-	
+	if ($localuser->get_Location() !== 'Town' && !$localuser->move($thisSite)) {
+        http_response_code(409);
+        exit('No turns remaining.');
+    }
+
 	$_SESSION['user'] = serialize($localuser);
 	session_write_close();
 ?>

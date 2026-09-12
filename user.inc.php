@@ -13,7 +13,7 @@ I got this idea from a script I downloaded, modified it to suit my needs.  Not s
 if object oriented was the way to go for user management, but wanted to exparament 
 with it, anyway.
 
-Passwords are, right now, probably unsecure.
+Passwords are stored as PHP password hashes and never serialized into sessions.
 *************************************************************************************/
 class user 
 {
@@ -42,13 +42,25 @@ class user
 	var $calculated = 0;
         
     //Initialization function
-    function user($user,$pass)
+    function __construct($user,$pass)
     {
         if ($user != "" && $pass != "")	$this->log_in($user,$pass);
         return $this->logged_in;
     }
 
+    function refresh()
+    {
+        $row = db_query('SELECT * FROM users WHERE username = ?', [$this->user_name])->fetch();
+        if (!$row) { $this->log_out(); return; }
+        foreach (['gold' => 'gold', 'hp' => 'hp', 'experience' => 'experience', 'turns' => 'turns', 'numLoc' => 'location'] as $property => $column) {
+            $this->$property = $row[$column];
+        }
+        $this->myInventory = new inventory($this->user_name, $this->numericClass);
+        $this->calculateStats();
+    }
+
     function get_calculated()
+
     {
         return "Calculated " . $this->calculated . " times";
     }
@@ -118,7 +130,7 @@ class user
 		/*
 			1 = Town
 			2 = TheBlueRiver
-			3 = TheDarkForrest
+			3 = TheDarkForest
 			4 = TheDeepCave
 		*/
 		switch ($this->numLoc)
@@ -130,7 +142,7 @@ class user
 				return "TheBlueRiver";
 				break;
 			case 3:
-				return "TheDarkForrest";
+				return "TheDarkForest";
 				break;
 			case 4:
 				return "TheDeepCave";
@@ -166,34 +178,27 @@ class user
 		return $toReturn;
 	}
 
-	function move($moveTo)
-	{
-        $moveTo = str_replace("_"," ",$moveTo);
-		if ($this->turns > 0) {
-            
-            $result = mysql_query("SELECT location FROM places WHERE name = '{$moveTo}'") or die("error finding place");
-            $row = mysql_fetch_array($result);
-            
-            $this->numLoc = $row['location'];
-			$this->turns --; 
-			
-			mysql_query("update users set turns={$this->turns},location={$this->numLoc} where username = '{$this->user_name}'") or die("error moving user");
-			return true; 
-		}
-		else {return false;}
-	}
-	
-	function rest()
-	{
-        //Resting allows the player to use a turn to regain some hitpoints.
-        //At first, they regain 50% of their max hp per rest, but, to encourage potion use,
-        //as the player levels up, resting is less usefull!
-        if ( $this->numLoc == 1 || $this->move("Town") )
-        {
-            $this->addHP( round( ($this->maxHP * .5) / $this->get_Level()) ); 
-        }
-	}
-	
+    function move($moveTo)
+    {
+        $row = db_query('SELECT location FROM places WHERE name = ?', [str_replace('_', ' ', $moveTo)])->fetch();
+        if (!$row) return false;
+        $updated = db_query('UPDATE users SET turns = turns - 1, location = ? WHERE username = ? AND turns > 0', [$row['location'], $this->user_name]);
+        if (!$updated->rowCount()) return false;
+        $this->numLoc = $row['location'];
+        $this->turns = db_query('SELECT turns FROM users WHERE username = ?', [$this->user_name])->fetchColumn();
+        return true;
+    }
+
+
+    function rest()
+    {
+        // Rest uses one turn, including when already in Town.
+        if (!$this->move('Town')) return false;
+        $this->addHP(round(($this->maxHP * .5) / $this->get_Level()));
+        return true;
+    }
+
+
 	function calculateTurns()
 	{
 	 	//Give a player 40 turns every 24 hours
@@ -214,59 +219,51 @@ class user
 	
 	function addHP ($hpToAdd)
 	{
-		$this->hp += $hpToAdd;
+		$this->hp += (int) round($hpToAdd);
 		if ($this->hp > $this->maxHP)
 		{
 			$this->hp = $this->maxHP;
 		}
-		mysql_query("UPDATE users set hp={$this->hp} where username = '{$this->user_name}'") or die(" hp {this->hp}, {$this->user_name}");
+		db_query("UPDATE users set hp=? where username = ?", [$this->hp, $this->user_name]) or die(" hp {this->hp}, {$this->user_name}");
 	}
 	
 	function looseHP ($hpToLoose)
 	{
 		$this->hp -= $hpToLoose;
-		if ($this->hp < 0)
+		if ($this->hp <= 0)
 		{
 			$this->hp = 0;
 			$this->playerDies();
 		}
-		mysql_query("UPDATE users set hp={$this->hp} where username = '{$this->user_name}'") or die(" hp");
+		db_query("UPDATE users set hp=? where username = ?", [$this->hp, $this->user_name]) or die(" hp");
 	}
 	
-	function buy ($itemID)
-	{
-        $spent = 0;
-        $query = "SELECT itemID,itemname,itemtype,isWearable,strAdded,dexAdded,hpAdded FROM items WHERE itemID = {$itemID}";
-        $result = mysql_query( $query ) or die ("Error finding item; check item id");
-        if (mysql_num_rows($result) == 1) 
-        {
-			$row = mysql_fetch_array($result);
-            $spent = round(( max($row['strAdded']*3,0) + max($row['dexAdded']*3,0) + max($row['hpAdded'],0) + max((isWearable*25),0)) * 1.15);
-            if ($this->get_Gold() > $spent)
-            {   
-                $this->addItem($itemID);
-                $this->spendGold($spent);
-            }
-            else $spent = 0;
+    function buy($itemID)
+    {
+        db()->beginTransaction();
+        try {
+            $row = db_query('SELECT * FROM items WHERE itemID = ? AND itemtype <> 10', [$itemID])->fetch();
+            if (!$row) { db()->rollBack(); return 0; }
+            $spent = (int) round((max($row['strAdded'] * 3, 0) + max($row['dexAdded'] * 3, 0) + max($row['hpAdded'], 0) + $row['isWearable'] * 25) * 1.15);
+            $updated = db_query('UPDATE users SET gold = gold - ? WHERE username = ? AND gold >= ?', [$spent, $this->user_name, $spent]);
+            if (!$updated->rowCount()) { db()->rollBack(); return 0; }
+            $this->myInventory->addItem($itemID);
+            $this->gold = db_query('SELECT gold FROM users WHERE username = ?', [$this->user_name])->fetchColumn();
+            db()->commit();
+            return $spent;
+        } catch (Throwable $error) {
+            if (db()->inTransaction()) db()->rollBack();
+            throw $error;
         }
-        return $spent;
-	}
-	
-    function addItem ($itemID)
-	{
-        $query = "SELECT itemID,itemname,itemtype,isWearable,strAdded,dexAdded,hpAdded FROM items WHERE itemID = {$itemID}";
-        $result = mysql_query( $query ) or die ("Error finding item; check item id");
-        if (mysql_num_rows($result) == 1) 
-        {
-            $this->myInventory->addItem($itemID); 
-            $toReturn = true;
-        } 
-        else 
-            $toReturn = false;
-        
-        return $toReturn;
-	}
-	
+    }
+
+
+    function addItem($itemID)
+    {
+        return $this->myInventory->addItem($itemID);
+    }
+
+
 	function equip ($itemID)
 	{
         if ( $this->myInventory->equip($itemID) ) {
@@ -294,13 +291,13 @@ class user
 	function addGold ($g)
 	{
         $this->gold += $g;
-        mysql_query("UPDATE users set gold={$this->gold} where username = '{$this->user_name}'") or die("gold update error");
+        db_query("UPDATE users set gold=? where username = ?", [$this->gold, $this->user_name]) or die("gold update error");
 	}
 
     function spendGold ($g)
     {
         $this->gold -= $g;
-        mysql_query("UPDATE users set gold={$this->gold} where username = '{$this->user_name}'") or die("gold update error");
+        db_query("UPDATE users set gold=? where username = ?", [$this->gold, $this->user_name]) or die("gold update error");
     }
 
     function get_Gold()
@@ -311,7 +308,7 @@ class user
 	function addExp ($e)
 	{
         $this->experience += $e;
-        mysql_query("UPDATE users set experience={$this->experience} where username = '{$this->user_name}'") or die("exp update error");
+        db_query("UPDATE users set experience=? where username = ?", [$this->experience, $this->user_name]) or die("exp update error");
         $this->calculateStats();
 	}
 	
@@ -362,6 +359,7 @@ class user
 		}
 		if ($this->hp > $this->maxHP) 
             $this->hp = $this->maxHP;
+        db_query('UPDATE users SET hp = ? WHERE username = ?', [$this->hp, $this->user_name]);
 	}
     
     function log_out()
@@ -375,26 +373,17 @@ class user
     
     function log_in($user,$pass)
     {
-		/*log_in
-		1. Query the database for the permissions of the user with the username and password supplied.
-		2. Check to be sure there is a row with that username and password(password).
-		3. Set user permissions.
-		4. Set username.
-		5. Set the user's logged_in status to 'true' on the database.
-			
-		2a. Set everything to nothing.
-		*/
+        // Verify the PHP password hash before hydrating session state.
         //Get permissions for user from users database.
-        $query = "SELECT now()+0 as now, email, class, permissions, experience, lastTurn, turns, location, hp, gold FROM users WHERE username = '{$user}' AND password = (password('{$pass}'))";
-        $result = mysql_query($query)
+        $params = [$user];
+        $query = "SELECT UNIX_TIMESTAMP() as now, username, password, email, class, permissions, experience, UNIX_TIMESTAMP(lastTurn) as lastTurn, turns, location, hp, gold FROM users WHERE username = ?";
+        $result = db_query($query, $params)
             or die( "Problem with selecting permissions and email" );
-        //mysql_fetch_array should return an array of all information gathered
-        //in the above query.  
-		$row = mysql_fetch_array( $result );
+        $row = $result->fetch();
 
-        if ( mysql_num_rows( $result ) == 1)
+        if ($row && password_verify($pass, $row['password']))
         {
-            $this->user_name = $user;
+            $this->user_name = $row['username'] ?? $user;
 			$this->numericClass = $row['class'];
 			switch ($row['class'])
 			{
@@ -411,9 +400,7 @@ class user
             $this->permissions = $row['permissions'];
             $this->email = $row['email'];
             $this->logged_in = true;
-			if ($row['experience'] != null)
-				$this->experience = $row['experience'];
-			else $this->experience = 100;
+            $this->experience = $row['experience'];
 			$this->myInventory = new inventory($this->user_name, $this->numericClass);
 			$this->hp = $row['hp'];
 			$this->calculateStats();
@@ -425,7 +412,7 @@ class user
 			$this->calculateTurns();
 			if ($this->timeOfLastTurn == $this->timeOfLastLogin)
 			{
-				mysql_query("UPDATE users SET lastTurn = now(),turns={$this->turns} WHERE username = '{$user}'")
+				db_query("UPDATE users SET lastTurn = now(),turns=? WHERE username = ?", [$this->turns, $user])
 					or die ("error updating lastturn");
 			}
 		}
@@ -439,31 +426,27 @@ class user
         }
 	}
 
-    function register($u,$p,$c,$e)
+    function register($u, $p, $c, $e)
     {
-        //check for existing users with that username
-        $query = "SELECT username FROM users WHERE username='{$u}'";
-        $result = mysql_query($query)
-            or die(mysql_error());
-        
-        if (mysql_num_rows($result) <= 0)
-        {
-            $per = 1;
-            $g = 0;
-            $h = 20;
-            $ex = 0;
-            $l = 0;
-            $t = 40;
-			//username,password,email,permissions,class,gold,hp,experience,location,turns,lastTurn
-			$query = "INSERT INTO users VALUES ('{$u}', (password('{$p}')), '{$e}', {$per}, {$c}, {$g}, {$h}, {$ex}, {$l}, {$t}, now())";
-			if (mysql_query($query)) 
-            {
-                $this->log_in($u,$p);
-                return true;
-            }
+        if (!is_string($u) || !preg_match('/\A[A-Za-z0-9_]{1,15}\z/', $u)
+            || !is_string($p) || strlen($p) < 8 || strlen($p) > 72 || str_contains($p, "\0")
+            || !is_string($c) || !is_string($e)
+            || !in_array((string)$c, ['1', '2', '3'], true)
+            || !filter_var($e, FILTER_VALIDATE_EMAIL) || strlen($e) > 254) {
+            return false;
         }
-        return false;
+        try {
+            db_query('INSERT INTO users (username,password,email,permissions,class,gold,hp,experience,location,turns,lastTurn) VALUES (?,?,?,1,?,0,20,0,1,40,CURRENT_TIMESTAMP)',
+                [$u, password_hash($p, PASSWORD_DEFAULT), $e, $c]);
+        } catch (PDOException $error) {
+            if ($error->errorInfo[1] === 1062) return false;
+            throw $error;
+        }
+        $this->log_in($u, $p);
+        return true;
     }
+
+
     function get_Stats()
     {
         $toReturn['str']     = $this->str;
@@ -490,30 +473,49 @@ class user
     
     function usePotion($id)
     {
-        //item must be decremented in inventory and any status effects calculated
-        $hpchange = $this->myInventory->usePotion($id);
-        $this->addHP($hpchange);
-        return $hpchange;
+        db()->beginTransaction();
+        try {
+            db_query('SELECT username FROM users WHERE username = ? FOR UPDATE', [$this->user_name]);
+            $hpchange = $this->myInventory->usePotion($id);
+            $this->addHP($hpchange);
+            db()->commit();
+            return $hpchange;
+        } catch (Throwable $error) {
+            if (db()->inTransaction()) db()->rollBack();
+            throw $error;
+        }
     }
+
 
     function sell($id)
     {
-        //item must be decremented in inventory and any status effects calculated
-        $goldChange = $this->myInventory->sell($id);
-        $this->addGold($goldChange);
-        return $goldChange;
+        db()->beginTransaction();
+        try {
+            db_query('SELECT username FROM users WHERE username = ? FOR UPDATE', [$this->user_name]);
+            $goldChange = $this->myInventory->sell($id);
+            db_query('UPDATE users SET gold = gold + ? WHERE username = ?', [$goldChange, $this->user_name]);
+            $this->gold = db_query('SELECT gold FROM users WHERE username = ?', [$this->user_name])->fetchColumn();
+            $this->calculateStats();
+            db()->commit();
+            return $goldChange;
+        } catch (Throwable $error) {
+            if (db()->inTransaction()) db()->rollBack();
+            throw $error;
+        }
     }
-    
+
+
     function get_PlayerBuyList()
     {
         $toreturn = "<div id=\"PlayerBuyList\">Buy something?<br/>";
+        $params = [];
         $query = "SELECT itemID, itemname, itemtype, isWearable, strAdded, dexAdded, hpAdded
 FROM items
 WHERE itemtype <> 10
 ORDER BY itemtype";
-        $result = mysql_query( $query ) or die("error getting playerbuylist");
+        $result = db_query($query, $params) or die("error getting playerbuylist");
         
-        while ( $row = mysql_fetch_array( $result ) )
+        while ( $row = $result->fetch() )
         {
             $toreturn .= "<a href=\"shop.php?task=buy&itemid={$row['itemID']}\">buy {$row['itemname']}</a><br/>";
         }

@@ -18,16 +18,18 @@ class inventory
 	var $equippedWeapon = 0;
 	var $equippedAccessory = 0;
 
-	function inventory($user, $uclass)
+	function __construct($user, $uclass)
 	{
-		$this->user_name = $user;
+		$this->items = []; $this->equippedArmor = $this->equippedWeapon = $this->equippedAccessory = 0;
+        $this->user_name = $user;
 		$this->numericClass = $uclass;
 
-		$query = "SELECT v.invID, v.qty, i.itemname, i.itemID, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = '{$this->user_name}' ORDER BY isEquipped DESC, itemtype";
-		$result = mysql_query($query) or die("problem getting inventory");
+		$params = [$this->user_name];
+        $query = "SELECT v.owner, v.invID, v.qty, i.itemname, i.itemID, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = ? AND v.qty > 0 ORDER BY isEquipped DESC, itemtype";
+		$result = db_query($query, $params) or die("problem getting inventory");
 
         $i = 1; //Counter to indicate what index value we are at in the array
-		while ( $row = mysql_fetch_array( $result ) )
+		while ( $row = $result->fetch() )
 		{
             $this->items[$i] = new item( $row );
 			if ($this->items[$i]->getIsEquipped() == true)
@@ -123,158 +125,79 @@ class inventory
 				}
 		}
         
-        return $pot;
+        return $pot . '</select>';
     }
 	
-	function addItem($itemID)
-	{   
-        //we want to know if there's an item in the inventory that is:
-        //of the same type as an id in the items table (v.itemtype = i.itemID)
-        //of the same type as the type passed to us (v.itemtype = $itemID)
-        //owned by the current user (owner='___')
-        //is stackable (i.itemtype = 0)
-        
-        $query = "SELECT v.invID, i.itemtype FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.itemtype = {$itemID} AND owner = '{$this->user_name}' AND i.itemtype = 0";
-        $result = mysql_query($query) or die ("problem locating items in inv");
-        $row = mysql_fetch_array($result);
-        if (mysql_num_rows($result) == 1)
-        {	
-			echo "if 1<br/>";
-            foreach($this->items as $curr)
-            {
-				echo "foreach<br/>";
-                //loop through the array of items till we find the one 
-                //of the same type and then add to it
-                //CHANGE 10am if ($curr->getItemID() == $itemID)
-                $iid = $curr->getID();
-                if ($row['invID'] == $iid ) {
-					echo "if foreach<br/>";
-                    $curr->addOne(); 
-                    break;
-                }
-                
-            }
+    function addItem($itemID)
+    {
+        $template = db_query('SELECT itemtype FROM items WHERE itemID = ?', [$itemID])->fetch();
+        if (!$template) return false;
+        $row = db_query('SELECT invID FROM inventory WHERE owner = ? AND itemtype = ? ORDER BY invID LIMIT 1', [$this->user_name, $itemID])->fetch();
+        if ($template['itemtype'] == 0 && $row) {
+            db_query('UPDATE inventory SET qty = qty + 1 WHERE invID = ? AND owner = ?', [$row['invID'], $this->user_name]);
+        } else {
+            db_query('INSERT INTO inventory (owner,itemtype,qty,isEquipped) VALUES (?,?,1,0)', [$this->user_name, $itemID]);
         }
-        else {
-			echo "else";
-            //the item needs to be added to the inventory database, i guess
-            $query = "INSERT INTO inventory VALUES (null,0,'{$this->user_name}',{$itemID},1)";
-            $result = mysql_query( $query ) or die ( "error adding new item to inventory; check item id" );
+        $this->__construct($this->user_name, $this->numericClass);
+        return true;
+    }
 
-            $query = "SELECT v.invID, i.itemname, i.itemtype, i.isWearable, i.strAdded, i.dexAdded, i.hpAdded, v.isEquipped  FROM inventory v, items i WHERE v.itemtype = i.itemID AND v.owner = '{$this->user_name}' AND v.itemtype = {$itemID}";
-            $result = mysql_query($query) or die("problem getting inventory");
 
-            $row = mysql_fetch_array( $result );
-			$this->items[] = new item( $row );
-        }
-	}
-	
-	function usePotion ($id)
-	{
-        $toReturn = 0;
+    function usePotion($id)
+    {
+        $row = db_query('SELECT i.hpAdded FROM inventory v JOIN items i ON i.itemID = v.itemtype WHERE v.invID = ? AND v.owner = ? AND v.qty > 0 AND i.itemtype = 0', [$id, $this->user_name])->fetch();
+        if (!$row) return 0;
+        $changed = db_query('UPDATE inventory SET qty = qty - 1, isEquipped = 0 WHERE invID = ? AND owner = ? AND qty > 0', [$id, $this->user_name]);
+        $this->__construct($this->user_name, $this->numericClass);
+        return $changed->rowCount() ? $row['hpAdded'] : 0;
+    }
+
+
+    function sell($id)
+    {
+        $row = db_query('SELECT i.itemtype,i.strAdded,i.dexAdded FROM inventory v JOIN items i ON i.itemID = v.itemtype WHERE v.invID = ? AND v.owner = ? AND v.qty > 0', [$id, $this->user_name])->fetch();
+        if (!$row) return 0;
+        $changed = db_query('UPDATE inventory SET qty = qty - 1, isEquipped = 0 WHERE invID = ? AND owner = ? AND qty > 0', [$id, $this->user_name]);
+        $this->__construct($this->user_name, $this->numericClass);
+        return $changed->rowCount() ? $row['itemtype'] + $row['strAdded'] + $row['dexAdded'] + 10 : 0;
+    }
+
+
+    function equip($id)
+    {
         foreach ($this->items as $curr) {
-            if ($curr->getID() == $id)
-            {
-                $toReturn = $curr->getHP();
-                $curr->useitem();
-            }
-        }
-        return $toReturn;
-	}
-	
-	function sell ($id)
-	{
-        $toReturn = 0;
-        foreach ($this->items as $curr) {
-            if ($curr->getID() == $id)
-            {
-                $toReturn = $curr->getPrice();
-                $curr->useitem();
-            }
-        }
-        return $toReturn;
-	}
-	
-	function equip($id)
-	{   
-        $curType = "";
-        //$id is the id of the item in the INVENTORY TABLE, asshole
-        $i = 1; //index of the current item in the array
-        
-        foreach ($this->items as $curr)
-        {
-            if ($curr->getID() == $id) { 
-                //need to check to see if the user can equip the item, as well
-                if ($curr->canEquip($this->numericClass)) {
-                      $curr->equip(); 
-                      $curType = $curr->getTypeStr();
-                } else {
-                     $curType = "CannotEquip";
+            if ($curr->getID() != $id || !$curr->canEquip($this->numericClass)) continue;
+            db()->beginTransaction();
+            try {
+                db_query('SELECT username FROM users WHERE username = ? FOR UPDATE', [$this->user_name]);
+                foreach ($this->items as $other) {
+                    if ($other->getTypeStr() == $curr->getTypeStr()) $other->unequip();
                 }
-                break; 
+                $curr->equip();
+                db()->commit();
+            } catch (Throwable $error) {
+                if (db()->inTransaction()) db()->rollBack();
+                throw $error;
             }
-            $i ++;
+            $this->__construct($this->user_name, $this->numericClass);
+            return true;
         }
-	  
+        return false;
+    }
 
-        //set the id for the new equipped item type
-        //unequip old item if one is equipped
-        switch ($curType)
-        {
-            case "Weapon":
-                if ($this->equippedWeapon > 0)
-                    {
-                    $this->items[$this->equippedWeapon]->unequip();
-                    }
-                $this->equippedWeapon = $i;
-                break;
-            case "Armor":
-                if ($this->equippedArmor > 0)
-                    $this->items[$this->equippedArmor]->unequip();
-                $this->equippedArmor = $i;
-                break;
-            case "Accessory":
-                if ($this->equippedAccessory > 0)
-                    $this->items[$this->equippedAccessory]->unequip();
-                $this->equippedAccessory = $i;
-                break;
 
-            case "CannotEquip": //do something?
-                break;
-            default:
-                echo $curType . "<br>";
-        }
-	} 
-	
     function unequip($id)
     {
-    //$id is the id of the item in the INVENTORY TABLE, asshole
-        $i = 1;
-        foreach ($this->items as $curr)
-        {
-            if ($curr->getID() == $id) { 
-                $curr->unequip(); 
-                $curType = $curr->getTypeStr();
-                break; 
+        foreach ($this->items as $curr) {
+            if ($curr->getID() == $id) {
+                $curr->unequip();
+                $this->__construct($this->user_name, $this->numericClass);
+                return true;
             }
-            $i ++;
-        }    
-        //$curType = $this->items[$id]->getTypeStr();
-        //$this->items[$id]->unequip($id);
-        //set the id for the new equipped item type
-        switch ($curType)
-        {
-            case "Weapon":
-                $this->equippedWeapon = 0;
-                break;
-            case "Armor":
-                $this->equippedArmor = 0;
-                break;
-            case "Accessory":
-                $this->equippedAccessory = 0;
-                break;
         }
+        return false;
     }
+
 
 	function getBonus()
 	{

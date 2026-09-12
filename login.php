@@ -2,13 +2,13 @@
 include_once('user.inc.php');
 session_start();
 
-if ( isset( $_SESSION['user'] ) );
+if ( isset( $_SESSION['user'] ) )
 {
 	if ($localuser = unserialize( $_SESSION['user'] )) {
         if ( $localuser->isLoggedIn() == true )
         {
             session_write_close();
-            header ("Refresh: 0; URL=userProfile.php");
+            header("Location: userProfile.php"); exit;
         }
         elseif ( $localuser->isLoggedIn() == false )
         {

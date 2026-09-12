@@ -4,10 +4,10 @@
 	include_once('user.inc.php');
 	include_once('sidebar.inc.php');
 	include_once('logoutTask.inc.php');
-	
+
 	$level = $localuser->get_Level();
     $currGold = $localuser->get_Gold();
-	
+
 	$_SESSION['user'] = serialize($localuser);
 	session_write_close();
 ?>
@@ -20,11 +20,11 @@
 <body>
 <?php
  echo outputSidebar($thisSite);
- echo $localuser->get_PlayerInventory(selllist);
+ echo $localuser->get_PlayerInventory('selllist');
  echo "<strong>" . $localuser->get_Gold() . "</strong> Gold Remaining<br/>";
 
  if ($goldSpent > 0) echo "Spent {$goldSpent} gold<br/>"; else if ($goldSpent == 0) echo "Not enough gold!";
- echo "<br/><br/>"; 
+ echo "<br/><br/>";
  $toshow = $localuser->get_PlayerBuylist();
  echo $toshow;
 ?>

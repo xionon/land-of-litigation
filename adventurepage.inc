@@ -2,24 +2,36 @@
 
     if ($localuser->get_CurrentHP() <= 0)
     {
-  		header("Refresh:0; URL=userProfile.php");
+		header("Location: userProfile.php"); exit;
     }
-    $localuser->move($thisSite);
+
     $ts = str_replace("_","",$thisSite);
     $msg = array();
 
     if (!isset($_SESSION['adventure'])) {
-        $localadventure = new adventure($thisSite,($localuser->get_Level+5));
+        if (!$localuser->move($thisSite)) {
+            http_response_code(409);
+            echo 'No turns remaining.';
+            exit;
+        }
+        $localadventure = new adventure($thisSite, $localuser->get_Level() + 5);
+
 	}
     else {
 		$localadventure = unserialize($_SESSION['adventure']);
+        $activePlace = db_query('SELECT name FROM places WHERE location = ?', [$localadventure->location])->fetchColumn();
+        $activeRoute = str_replace(' ', '', $activePlace) . '.php';
+        if (str_replace('_', '', $thisSite) . '.php' !== $activeRoute) {
+            header('Location: ' . $activeRoute); exit;
+        }
+
 	}
-	
+
     if (isset($_POST['adventurecommand']))
     {
         $localstats = $localuser->get_Stats();
         $msg = $localadventure->performCommand($_POST['adventurecommand'],$localstats);
-        $localuser->looseHP($msg['damage']);
+        $localuser->looseHP(($msg['damage'] ?? 0));
     }
 
     $hp = $localuser->get_CurrentHP();
@@ -37,12 +49,12 @@
     else if ($localadventure->getType() == 2 && $localadventure->isCompleted()==false && $localuser->get_CurrentHP() > 0)
     {
         //setup fight commands
-        $commands .= "<tr><td><form action=\"{$ts}.php\" method=\"POST\">" . 
-        "<input type=\"submit\" name=\"adventurecommand\" value=\"Attack\"></td>" . 
-        "<td><input type=\"submit\" name=\"adventurecommand\" value=\"Run\"></td></tr></form>" . 
+        $commands .= "<tr><td><form action=\"{$ts}.php\" method=\"POST\">" .
+        "<input type=\"submit\" name=\"adventurecommand\" value=\"Attack\"></td>" .
+        "<td><input type=\"submit\" name=\"adventurecommand\" value=\"Run\"></td></tr></form>" .
         "<tr><td><form action=\"{$ts}.php\" method=\"GET\"><input type=\"hidden\" name=\"task\" value=\"usePotion\">" . $localuser->get_PlayerInventory("potionlist") . "<input type=\"submit\" value=\"Use\"></form></td></tr>";
     }
-    
+
     if ($localadventure->isCompleted()==true && $localuser->get_CurrentHP() > 0)
     {
         $reward = array();
@@ -63,19 +75,19 @@
         $commands .= "<tr><td><a href=\"mainMap.php\">Back to main map</a></td></tr>";
         $commands .= "<tr><td><a href=\"userProfile.php\">Go to user profile</a></td></tr>";
     }
-    
+
     if ($localuser->get_CurrentHP() <= 0)
     {
         $commands .= "<tr><td>You have been knocked out!</td></tr> <tr><td><a href=\"Town.php\">Click here to go back to town, or wait 5 seconds.</a>";
-  		header("Refresh:5; URL=Town.php");
+		header("Refresh:5; URL=Town.php");
         $localadventure->complete();
     }
 
     $commands .="</table>";
-    
-    if ($localadventure->isCompleted() == false && $localuser->get_CurrentHP() > 0) 
+
+    if ($localadventure->isCompleted() == false && $localuser->get_CurrentHP() > 0)
         $_SESSION['adventure'] = serialize($localadventure);
-    else 
+    else
         unset($_SESSION['adventure']);
 	$_SESSION['user'] = serialize($localuser);
 	session_write_close();
