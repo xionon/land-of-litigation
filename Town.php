@@ -10,6 +10,8 @@
         http_response_code(409);
         exit('No turns remaining.');
     }
+    // Reaching Town abandons combat; returning to the wilderness starts a new encounter.
+    unset($_SESSION['adventure']);
 
 	$_SESSION['user'] = serialize($localuser);
 	session_write_close();
